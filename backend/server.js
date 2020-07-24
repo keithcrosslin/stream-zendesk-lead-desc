@@ -13,12 +13,6 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// initialize Stream Chat SDK
-const serverSideClient = new StreamChat(
-  process.env.STREAM_API_KEY,
-  process.env.STREAM_API_SECRET
-);
-
 app.get("/getleads", async (req, res) => {
   try {
     const headers = {
@@ -97,6 +91,12 @@ app.put('/updateDesc', async (req, res) => {
       res.status(500);
   }
 });
+
+// initialize Stream Chat SDK
+const serverSideClient = new StreamChat(
+  process.env.STREAM_API_KEY,
+  process.env.STREAM_API_SECRET
+);
 
 app.post("/join", async (req, res) => {
   const { username } = req.body;

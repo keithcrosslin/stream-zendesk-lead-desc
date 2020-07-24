@@ -1,4 +1,4 @@
-# Realtime capture of a Chat transcript with Stream Chat
+# Real-time capture of a Chat transcript with Stream Chat
 Can you imagine improving a chat experience in real-time during a chat experience? Would your chat applications be improved with more timely handling of customer chat inquiries? This post demonstrates how to leverage the powerful [Stream Chat API](https://getstream.io/chat/docs) to take action with a chat transcript as the transcript is happening, response by response. The techniques provided here will help you better understand key components of the Stream Chat API, so that you can leverage them for similar applications, either with Zendesk or other applications.
 
 We show this through the use case of updating a Zendesk CRM Lead in real-time with the transcript messages of a `Customer` and a `Sales Admin` during a `Chat-based Sales Inquiry`.
@@ -13,7 +13,7 @@ The application described in this post is composed of:
 * `frontend-customer` which runs on http://localhost:3000/
 * `backend`, which runs on http://localhost:7000/
 
-The frontend components were bootstrapped using `create-react-app`, and the backend server is an `Express` app running on `nodejs`. Both frontend and backend leverage Stream's [JavaScript library](https://github.com/GetStream/stream-js). The backend employs `Axios` to `Put` an update via the `Zendesk Sell API` to the Description of an existing Zendesk Lead. All the code required for this tutorial is available in [github](LOCATION).
+The frontend components were bootstrapped using `create-react-app`, and the backend server is an `Express` app running on `nodejs`. Both frontend and backend leverage Stream's [JavaScript library](https://github.com/GetStream/stream-js). The backend employs `Axios` to `Put` an update via the `Zendesk Sell API` to the Description of an existing Zendesk Lead. All the code required for this tutorial is available in the github repository [github/stream-zendesk-lead-desc](LOCATION).
 
 ## Prerequisites
 
@@ -68,7 +68,7 @@ This application uses three environment variables:
 
 You will find a file in the Backend folder, `.env.example`, that you can rename to create a `.env` file.
 
-In order to get the `Stream` credentials, navigate to your [Stream.io Dashboard](https://getstream.io/dashboard/)
+To get the `Stream` credentials, navigate to your [Stream.io Dashboard](https://getstream.io/dashboard/)
 
 ![](images/stream-dashboard-button.png)
 
@@ -95,9 +95,11 @@ npx create-react-app frontend-customer
 npx create-react-app frontend-admin
 ```
 
-Then you can update the scr/App.js files with the following code snippets (noting key differences for the [Admin](http://localhost:4000/) and [Customer](http://localhost:3000/) endpoints).
+Then you can update the scr/App.js files with the following code snippets (noting key differences for the [Admin](http://localhost:4000/) and [Customer](http://localhost:3000/) endpoints). (Note: there are several methodologies for creating multiple user experiences for a front-end React app. While the method used here is convenient for learning, it is redundant code. Choose what's best for your needs on this step.)
 
 ### Add library references
+
+Stream's convenient libraries power the front-end. Here is the list of libraries loaded:
 
 ```jsx
 // frontend.../src/App.js:1-15
@@ -120,7 +122,7 @@ import "stream-chat-react/dist/css/index.css";
 
 ### Frontend function
 
-Please note that the two fronend endpoints have two slight adjustments. The first is a different Constant as follows:
+The `Admin` and `Customer` chat screens in this post utilize the same code with the following differences. The first is a different Constant to designate the different type of user - `Admin` versus `Customer` - as follows:
 ```jsx
 // frontend-admin/scr/App.js:18
 const username = "Admin";
@@ -137,16 +139,116 @@ and a slight change in the `start` reference in the `package.json` file:
     "start": "PORT=4000 react-scripts start",
 ```
 
-JEFF: I'M ASSUMING THAT YOU WILL RE-FACTOR MY CODE, SO I'LL LEAVE THE REST OF THIS SECTION FOR YOU.
+Next, the frontend requests a `usertoken` from the backend and joins Stream Channel created by the `backend` (More on this in the next step). Once the token and connection to the channel are received, the code renders the chat screen and watches the channel for changes.
 
+```jsx
+// frontend-.../scr.App.js:20-107
+function Frontend() {
+  document.title = "CS Admin";
+  const [channel, setChannel] = useState(null);
 
-Here we have a simple React form that binds three values, first name, last name, and email. We use React Hook's `useState` to store these values. When a user clicks on "Start Chat" we call our `register` function. We'll see this function in Step 3.
+  useEffect(() => {
+    const username = "Admin";
+    async function getToken() {
+      try {
+        const response = await axios.post("http://localhost:7000/join", {
+          username
+        });
+        console.log(response.data.token);
+        const token = response.data.token;
+        chatClient = new StreamChat(response.data.api_key);
+
+        chatClient.setUser(
+          {
+            id: username,
+            name: username
+          },
+          token
+        );
+
+        const channel = chatClient.channel("messaging", "livechat", {
+          name: "CS Admin"
+        });
+
+        await channel.watch();
+        setChannel(channel);
+      } catch (err) {
+        console.log(err);
+        return;
+      }
+    }
+
+    getToken();
+  }, []);
+
+  if (channel) {
+    const CustomChannelHeader = withChannelContext(
+      class CustomChannelHeader extends React.PureComponent {
+        render() {
+          return (
+            <div className="str-chat__header-livestream">
+              <div className="str-chat__header-livestream-left">
+                <p className="str-chat__header-livestream-left--title">
+                  Customer Support Chat
+                </p>
+              </div>
+              <div className="str-chat__header-livestream-right">
+                <div className="str-chat__header-livestream-right-button-wrapper">
+                </div>
+              </div>
+            </div>
+          );
+        }
+      }
+    );
+    
+    async function handleMessage(channelId, message){
+      let r1 = await axios.put("http://localhost:7000/updateDesc", {
+          message,
+          author: username
+        });
+      let r2 = await channel.sendMessage(message);
+      return r2 + r1
+    }
+
+    return (
+      <Chat client={chatClient} theme="commerce light">
+        <Channel channel={channel} doSendMessageRequest={handleMessage}>
+          <Window>
+            <CustomChannelHeader />
+            <MessageList
+              typingIndicator={TypingIndicator}
+              Message={MessageCommerce}
+            />
+            <MessageInput Input={MessageInputFlat} focus />
+          </Window>
+        </Channel>
+      </Chat>
+    );
+  }
+
+  return <div></div>;
+}
+
+export default Frontend;
+```
 
 ## 2 - Authenticate Admin and Customer to the Chat
 
-We use express to create an endpoint in the [backend](http://localhost:7000/), `/join`, that will generate a chat [channel](https://getstream.io/chat/docs/initialize_channel/?language=js), and generate a Stream [frontend token](https://getstream.io/blog/integrating-with-stream-backend-frontend-options/), which is used by `Admin` and `Customer`. 
+The express-based [backend](http://localhost:7000/) code for Stream Chat first creates a `StreamChat` object which is our client to communicate with the Stream Chat API.
+
+```jsx
+// backend/server.js:95-99
+// initialize Stream Chat SDK
+const serverSideClient = new StreamChat(
+  process.env.STREAM_API_KEY,
+  process.env.STREAM_API_SECRET
+);
+```
+The specific express endpoint that is called by the front is, http://localhost:7000/join, which generates a chat [channel](https://getstream.io/chat/docs/initialize_channel/?language=js), and generate a Stream [frontend token](https://getstream.io/blog/integrating-with-stream-backend-frontend-options/), which is used by `Admin` and `Customer`. 
 
 ```javascript
+// backend/server.js:101-122
 app.post("/join", async (req, res) => {
   const { username } = req.body;
   const token = serverSideClient.createToken(username);
@@ -176,22 +278,15 @@ app.post("/join", async (req, res) => {
 });
 ```
 
-First, we use `axios` to do an HTTP Post to the Zendesk Sell API (`api.getbase.com`). We pass along the first name, last name and email. We're using [dotenv](https://github.com/motdotla/dotenv) to configure our OAuth token in order to authenticate with Zendesk's API (as discussed in the configuration sections above).  That's all we need to do to get our lead created.
-
-Next, we create a `StreamChat` object which is our client to communicate with the Stream Chat API. We create a Stream user object with an appropriate id (Stream id's must be lowercase with no whitespace), that represents our customer. We `upsert` the customer, alongside a sales admin user into Stream. Since Stream's `upsertUsers` method will create or update the users, our `sales-admin` is generated lazily the first time we a user interacts with our backend. Normally, you'd likely generate this user once and configure the id for user here. To keep things simple, we're simply doing everything in line. As mentioned previously, we're not diving into the Sales person's chat experience in this post.
-
-After the Stream library creates the users, we can create our one-on-one channel between the customer and the sales user. We call to `client.create` with `messaging` and the `members` that are allowed. This call will create a channel that's of the `messaging` [type](https://getstream.io/chat/docs/channel_features/?language=js) that is only joinable by that customer.
-
-Finally, we can generate our frontend token which allows the user to join the chat. We create a JSON that includes all the necessary data and respond to the frontend.
-
 ## 3 - Send messages to Zendesk
 
-Sending the message to Zendesk happens via a backend endpoint and function on the frontend to pass the message to the backend. The first thing in this process is to set a Constant to hold the Lead ID:
+Sending the message to Zendesk happens via a backend endpoint, http://localhost:7000/updateDesc, and function on the frontend, `handleMessage` to pass the message to this `backend endpoint`.
+
+The first thing in this process is to set a Constant to hold the `Lead ID` (you need to create at least one Lead in Zendesk or you can use an existing Lead - see step 4 below to lookup your Lead ID):
 ```jsx
 // backend/Server.js:40
 const leadId = 'your-lead-id'
 ```
-(Note: see step 4 below for a way to look up your Lead ID.)
 
 Next we code a backend function to retrieve the Lead Description from Zendesk, called `getLeadDesc`, as follows:
 
@@ -244,7 +339,7 @@ app.put('/updateDesc', async (req, res) => {
 });
 ```
 
-The two frontends pass the message to `/updateDesc` with the following function:
+The two frontends pass the message to `/updateDesc` with the following function, `handleMessage`:
 ```jsx
 // frontend-.../src/App.js:78-85
     async function handleMessage(channelId, message){
@@ -257,9 +352,7 @@ The two frontends pass the message to `/updateDesc` with the following function:
     }
 ```
 
-JEFF TO CONFIRM FOLLOWING PARAGRAPH
-
-Our `register` first performs an HTTP Post to our backend with the fields that were bound in our form. The backend responds with `userId`, `token`, `channelId`, and `apiKey` which is what we need to configure our chat client and user. We start by intitializing a `StreamChat` instance with our `apiKey`. We set the user via `setUser` with our id and token. This call authenticates the client to communicate with the Stream Chat API on behalf of that user. We then retrieve the appropriate channel via `chatClient.channel` and set our component's state.
+As you send messages from either the `Admin` or `Customer` chat screens, you can immediately see the information being updated in Zendesk by either refreshing the Edit Lead screen in Zendesk, or by the helper backend page, http://localhost:7000/getLeadDesc, described below.
 
 ## 4 - Miscellaneous Backend Endpoints
 
