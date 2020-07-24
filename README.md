@@ -1,25 +1,27 @@
-# Realtime capture of a Chat transcript with Stream Chat
-Can you imagine improving a chat experience in real-time during a chat experience? Would your chat applications be improved with more timely handling of customer chat inquiries? This post demonstrates how to leverage the powerful [Stream Chat API](https://getstream.io/chat/docs) to take action with a chat transcript as the transcript is happening, response by response. The techniques provided here will help you better understand key components of the Stream Chat API, so that you can leverage them for similar applications, either with Zendesk or other applications.
+# Real-time capture of a chat transcript with Stream Chat
 
-We show this through the use case of updating a Zendesk CRM Lead in real-time with the transcript messages of a `Customer` and a `Sales Admin` during a `Chat-based Sales Inquiry`.
+Would real-time chat transcript handling improve your chat widget? Would your chat applications be improved with more timely handling of customer chat inquiries? This post demonstrates how to leverage the powerful [Stream Chat API](https://getstream.io/chat/docs) to take action with a chat transcript in real time. The techniques provided here will help you better understand key components of the Stream Chat and Zendesk APIs, so you can leverage them for similar applications.
 
-The simplified process of this post assumes that a customer has already initiated a chat inquiry with customer support, so it provides two browser tabs, an endpoint for the `Sales Admin`, and an endpoint for a `Customer`. Both the [Admin](http://localhost:4000/) and [Customer](http://localhost:3000/) chat screens pass the chat message to the [backend](http://localhost:7000/), which calls the Zendesk Sell API to update the desired `Lead Description`. You will see that the `Zendesk Lead Description` is updated after either of the two chat screens send a message. This flow is illustrated below.
+This post explains how to update a Zendesk CRM Lead in real-time with the transcript messages of a `Customer` and a `Sales Admin` during a `Chat-based Sales Inquiry`.
+
+The simplified process of this post assumes that a customer has already initiated a chat inquiry with customer support, so it provides two browser tabs, an endpoint for the `Sales Admin`, and an endpoint for a `Customer`. Both the [Admin](http://localhost:4000/) and [Customer](http://localhost:3000/) chat screens pass the chat message to the [backend](http://localhost:7000/), which calls the Zendesk Sell API to update the desired `Lead Description`. You will see that the `Zendesk Lead Description` is updated when either of the two chat screens send a message. This flow is illustrated below.
 
 ![](images/stream-to-zendesk-flow.png)
 
 ## Technical Overview
+
 The application described in this post is composed of:
 * `frontend-admin` which runs on http://localhost:4000/
 * `frontend-customer` which runs on http://localhost:3000/
 * `backend`, which runs on http://localhost:7000/
 
-The frontend components were bootstrapped using `create-react-app`, and the backend server is an `Express` app running on `nodejs`. Both frontend and backend leverage Stream's [JavaScript library](https://github.com/GetStream/stream-js). The backend employs `Axios` to `Put` an update via the `Zendesk Sell API` to the Description of an existing Zendesk Lead. All the code required for this tutorial is available in [github](LOCATION).
+The frontend components were bootstrapped using `create-react-app`, and the backend server is an `Express` app running on `nodejs`. Both frontend and backend leverage Stream's [JavaScript library](https://github.com/GetStream/stream-js). The backend employs `Axios` to `Put` an update via the `Zendesk Sell API` to the Description of an existing Zendesk Lead. All the code required for this tutorial is available in the [github repo here](LOCATION).
 
 ## Prerequisites
 
 To follow along with the post, you will need a free [Stream](https://getstream.io/get_started/?signup=#flat_feed) account, and a Zendesk Sell account (a Zendesk Trial can be obtained [here](https://www.zendesk.com/register/?source=zendesk_sell#step-1)).
 
-The code in this post is intended to run locally, and assumes a basic knowledge of [React Hooks](https://reactjs.org/docs/hooks-intro.html), [Express](https://expressjs.com/), [Node.js](https://nodejs.org/en/ "node website"), and [Axios](https://github.com/axios/axios "Axios documentation on Github"). The minimum knowledge required to configure Zendesk and use the API is explained in the post (click on [Zendesk Sell API](https://developer.zendesk.com/rest_api/docs/sell-api/apis) to learn more). Please note, however, that you will need to create at least one Lead manually in Zendesk and configure the Lead ID in the application code, as described below.
+The code in this post is intended to run locally, and assumes a basic knowledge of [React Hooks](https://reactjs.org/docs/hooks-intro.html), [Express](https://expressjs.com/), [Node.js](https://nodejs.org/en/ "node website"), and [Axios](https://github.com/axios/axios "Axios documentation on Github"). The minimum knowledge required to configure Zendesk and use the API is explained in the post (check out the [Zendesk Sell API](https://developer.zendesk.com/rest_api/docs/sell-api/apis) to learn more). Please note, however, that you will need to create at least one lead manually in Zendesk, and configure the Lead ID in the application code, as described below.
 
 The steps we will take to configure the `backend` are:
 1. [Registering and Configuring Zendesk](#registering-and-configuring-zendesk)
@@ -68,7 +70,7 @@ This application uses three environment variables:
 
 You will find a file in the Backend folder, `.env.example`, that you can rename to create a `.env` file.
 
-In order to get the `Stream` credentials, navigate to your [Stream.io Dashboard](https://getstream.io/dashboard/)
+To get the `Stream` credentials, navigate to your [Stream.io Dashboard](https://getstream.io/dashboard/)
 
 ![](images/stream-dashboard-button.png)
 
@@ -95,9 +97,11 @@ npx create-react-app frontend-customer
 npx create-react-app frontend-admin
 ```
 
-Then you can update the scr/App.js files with the following code snippets (noting key differences for the [Admin](http://localhost:4000/) and [Customer](http://localhost:3000/) endpoints).
+Then you can update the scr/App.js files with the following code snippets (noting key differences for the [Admin](http://localhost:4000/) and [Customer](http://localhost:3000/) endpoints). (Note: there are several methodologies for creating multiple user experiences for a front-end React app. While the method used here is convenient for learning it can be argued that it creates a redundant code-base. Choose what's best for your needs on this step.)
 
 ### Add library references
+
+Stream's convenient libraries power the front-end. Here is the list of libraries loaded:
 
 ```jsx
 // frontend.../src/App.js:1-15
@@ -120,7 +124,11 @@ import "stream-chat-react/dist/css/index.css";
 
 ### Frontend function
 
-Please note that the two fronend endpoints have two slight adjustments. The first is a different Constant as follows:
+Please note that the two fronend endpoints have slight differences. The first is a different Constant as follows: 
+
+
+//@Keith: could use clarification?^ this is first time endpoints are introduced.
+
 ```jsx
 // frontend-admin/scr/App.js:18
 const username = "Admin";
@@ -144,7 +152,7 @@ Here we have a simple React form that binds three values, first name, last name,
 
 ## 2 - Authenticate Admin and Customer to the Chat
 
-We use express to create an endpoint in the [backend](http://localhost:7000/), `/join`, that will generate a chat [channel](https://getstream.io/chat/docs/initialize_channel/?language=js), and generate a Stream [frontend token](https://getstream.io/blog/integrating-with-stream-backend-frontend-options/), which is used by `Admin` and `Customer`. 
+Next, we'll use Express to create a `/join` endpoint in the [backend](http://localhost:7000/). This endpoint will generate a chat [channel](https://getstream.io/chat/docs/initialize_channel/?language=js), and a Stream [frontend token](https://getstream.io/blog/integrating-with-stream-backend-frontend-options/). These will be used by both the `Admin` and `Customer` frontend apps to join the correct chat. 
 
 ```javascript
 app.post("/join", async (req, res) => {
@@ -176,22 +184,22 @@ app.post("/join", async (req, res) => {
 });
 ```
 
-First, we use `axios` to do an HTTP Post to the Zendesk Sell API (`api.getbase.com`). We pass along the first name, last name and email. We're using [dotenv](https://github.com/motdotla/dotenv) to configure our OAuth token in order to authenticate with Zendesk's API (as discussed in the configuration sections above).  That's all we need to do to get our lead created.
+In the above snippet we use `axios` to perform an HTTP Post to the Zendesk Sell API (`api.getbase.com`). We pass along the first name, last name and email. We're using [dotenv](https://github.com/motdotla/dotenv) to configure our OAuth token to authenticate with Zendesk's API (as discussed in the configuration sections above).  That's all we need to do to get our lead created.
 
-Next, we create a `StreamChat` object which is our client to communicate with the Stream Chat API. We create a Stream user object with an appropriate id (Stream id's must be lowercase with no whitespace), that represents our customer. We `upsert` the customer, alongside a sales admin user into Stream. Since Stream's `upsertUsers` method will create or update the users, our `sales-admin` is generated lazily the first time we a user interacts with our backend. Normally, you'd likely generate this user once and configure the id for user here. To keep things simple, we're simply doing everything in line. As mentioned previously, we're not diving into the Sales person's chat experience in this post.
+Next, we create a `StreamChat` object ((@Keith: Looks like different variable names are used in the snippet above. Was confusing to me. Perhaps you can go back through and make sure all the references you make in this paragraph match exactly to something in the snippet) which is our client to communicate with the Stream Chat API. We create a Stream user object with an appropriate id (Stream id's must be lowercase with no whitespace), which represents our customer. We `upsert` the customer, alongside a sales admin user into Stream. Because configuring accounts is out of the scope of this post, our `sales-admin` user is generated lazily when a user interacts with our backend. In other implementations, you could generate this user once and simply pass in the id. To keep things simple, we're doing everything in line.
 
-After the Stream library creates the users, we can create our one-on-one channel between the customer and the sales user. We call to `client.create` with `messaging` and the `members` that are allowed. This call will create a channel that's of the `messaging` [type](https://getstream.io/chat/docs/channel_features/?language=js) that is only joinable by that customer.
+After the Stream library creates the users, we can create our one-on-one channel between the customer and the sales user. We call to `client.create` with `messaging` and the `members` that are allowed. This call will create a channel that's of the `messaging` [type](https://getstream.io/chat/docs/channel_features/?language=js) that is only joinable by the users indicated.
 
-Finally, we can generate our frontend token which allows the user to join the chat. We create a JSON that includes all the necessary data and respond to the frontend.
+Finally, we can generate our frontend token that allows the user to join the chat. Our JSON response includes all the necessary data for the frontend.
 
 ## 3 - Send messages to Zendesk
 
-Sending the message to Zendesk happens via a backend endpoint and function on the frontend to pass the message to the backend. The first thing in this process is to set a Constant to hold the Lead ID:
-```jsx
+To save messages to Zendesk, the frontend passes each message to the backend, then a backend endpoint sends the message to Zendesk. The first step in this process is to set a Constant pointing to the Zendesk Lead ID. (Note: see step 4 below for instructions on how to look up a Lead ID).
+
+```jsx  @Jeff: I thought backend would be all javascript, jsx for frontend - am I missing something?
 // backend/Server.js:40
 const leadId = 'your-lead-id'
 ```
-(Note: see step 4 below for a way to look up your Lead ID.)
 
 Next we code a backend function to retrieve the Lead Description from Zendesk, called `getLeadDesc`, as follows:
 
@@ -208,7 +216,7 @@ async function getLeadDesc(req, res) {
         'https://api.getbase.com/v2/leads/' + leadId,
         {headers: headers}
     );
-    // console.log(response.data.data);
+    // console.log(response.data.data);   @Keith: be sure to remove all console logs from code and snippets
     return response.data.data.description;
   } catch (err) {
     console.log(err);
@@ -216,7 +224,7 @@ async function getLeadDesc(req, res) {
 }};
 ```
 
-The backend then has an endpoint, `/updateDesc`, which first calls the `getLeadDesc` function and then appends the new message to the Description and `puts` it back into Zendesk, as follows:
+The backend then has an endpoint, `/updateDesc`, which first calls the `getLeadDesc` function and then appends the new message to the Description and `puts` it back into Zendesk, as follows:  @Keith: explicit variables might be useful. Desc could me descending, not description.
 
 ```jsx
 // backend/Server.js:78-99
@@ -263,7 +271,7 @@ Our `register` first performs an HTTP Post to our backend with the fields that w
 
 ## 4 - Miscellaneous Backend Endpoints
 
-The `backend` includes two additional endpoints that are included as helpers, to 1) lookup the Lead ID in Zendesk and, 2) to show the updated Lead Description without having to refresh the Lead Description screen in Zendesk.
+The `backend` includes two additional endpoints that are included as helpers, to 1) lookup the Lead ID in Zendesk and 2) show the updated Lead Description without having to refresh the Lead Description screen in Zendesk.
 
 Once you have manually created a Lead in Zendesk, you can navigate to this backend endpoint, http://localhost:7000/getLeads, to look up the Zendesk `LeadId`, which is not exposed in the Zendesk UI. The code for this endpoint follows:
 
