@@ -27,10 +27,10 @@ The steps we will take to configure the `backend` are:
 2. [Create a Stream Chat Session](#create-a-stream-chat-session)
 
 The steps of the `frontend` are:
-1. [Initiate the Frontend Chat Screens](#1-initiate-the-frontend-chat-screens)
-2. [Authenticate Admin and Customer to the Chat](#2-authenticate-admin-and-custoemr-to-the-chat)
-3. [Send messages to Zendesk](#3-send-messages-to-zendesk)
-4. [Miscellaneous Backend Endpoints](#4-miscellaneous-backend-endpoints)
+1. [Initiate the Frontend Chat Screens](#1---initiate-the-frontend-chat-screens)
+2. [Authenticate Admin and Customer to the Chat](#2---authenticate-admin-and-custoemr-to-the-chat)
+3. [Send messages to Zendesk](#3---send-messages-to-zendesk)
+4. [Miscellaneous Backend Endpoints](#4---miscellaneous-backend-endpoints)
 
 ### Registering and Configuring Zendesk
 
